@@ -16,8 +16,8 @@ const float avgSkip = 1.0; // Skip the averaging function if the reading differe
 float avgHumidity, avgTemperature, oldHumidity, oldTemperature;
 //////////////////////// END DHT11//////////////////////////////
 //WIFI Settings
-const char* ssid = "wifi2013";
-const char* password = "the0815993598";
+const char* ssid = "***************";
+const char* password = "*****************";
 int ModbusTCP_port = 502;
 
 //////// Required for Modbus TCP / IP /// Requerido para Modbus TCP/IP /////////
