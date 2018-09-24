@@ -1,0 +1,276 @@
+ /*
+ * More Tutorials: 
+ * Website http://trialcommand.com
+ * In English: http://en.trialcommand.com
+ * En Español: http://en.trialcommand.com 
+ */
+#include <ESP8266WiFi.h>
+
+
+/////////////////////////BEGIN DHT11/////////////////////////////
+#include <dht11.h>
+dht11 DHT11;
+const float avgForce = 10.0;  // Force of which the averaging function is using to affect the reading
+const float avgSkip = 1.0; // Skip the averaging function if the reading difference is bigger than this since last reading
+
+float avgHumidity, avgTemperature, oldHumidity, oldTemperature;
+//////////////////////// END DHT11//////////////////////////////
+//WIFI Settings
+const char* ssid = "wifi2013";
+const char* password = "the0815993598";
+int ModbusTCP_port = 502;
+
+//////// Required for Modbus TCP / IP /// Requerido para Modbus TCP/IP /////////
+#define maxInputRegister 20
+#define maxHoldingRegister 20
+
+#define MB_FC_NONE 0
+#define MB_FC_READ_REGISTERS 3 //implemented
+#define MB_FC_WRITE_REGISTER 6 //implemented
+#define MB_FC_WRITE_MULTIPLE_REGISTERS 16 //implemented
+//
+// MODBUS Error Codes
+//
+#define MB_EC_NONE 0
+#define MB_EC_ILLEGAL_FUNCTION 1
+#define MB_EC_ILLEGAL_DATA_ADDRESS 2
+#define MB_EC_ILLEGAL_DATA_VALUE 3
+#define MB_EC_SLAVE_DEVICE_FAILURE 4
+//
+// MODBUS MBAP offsets
+//
+#define MB_TCP_TID 0
+#define MB_TCP_PID 2
+#define MB_TCP_LEN 4
+#define MB_TCP_UID 6
+#define MB_TCP_FUNC 7
+#define MB_TCP_REGISTER_START 8
+#define MB_TCP_REGISTER_NUMBER 10
+
+byte ByteArray[260];
+unsigned int MBHoldingRegister[maxHoldingRegister];
+
+//////////////////////////////////////////////////////////////////////////
+
+WiFiServer MBServer(ModbusTCP_port);
+
+void setup() {
+
+ DHT11.attach(12);
+
+ pinMode(14, OUTPUT);
+ 
+ Serial.begin(9600);
+ delay(100) ;
+ // Static IP details...
+  IPAddress ip(192, 168, 1, 32);
+  IPAddress gateway(192, 168, 1, 1);
+  IPAddress subnet(255, 255, 255, 0);
+  IPAddress dns(192, 168, 1, 1);
+ // Static IP Setup Info Here...
+  WiFi.config(ip, dns, gateway, subnet); //If you need Internet Access You should Add DNS also...
+  WiFi.begin(ssid, password);
+
+ delay(100) ;
+ Serial.println(".");
+ while (WiFi.status() != WL_CONNECTED) {
+ delay(500);
+ Serial.print(".");
+ }
+ MBServer.begin();
+ Serial.println("Connected ");
+ Serial.print("ESP8266 Slave Modbus TCP/IP ");
+ Serial.print(WiFi.localIP());
+ Serial.print(":");
+ Serial.println(String(ModbusTCP_port));
+ Serial.println("Modbus TCP/IP Online");
+ 
+}
+
+
+void loop() {
+
+
+ // Check if a client has connected // Modbus TCP/IP
+ WiFiClient client = MBServer.available();
+ if (!client) {
+ return;
+ }
+ 
+
+ boolean flagClientConnected = 0;
+ byte byteFN = MB_FC_NONE;
+ int Start;
+ int WordDataLength;
+ int ByteDataLength;
+ int MessageLength;
+ 
+ // Modbus TCP/IP
+ while (client.connected()) {
+ 
+ if(client.available())
+ {
+ flagClientConnected = 1;
+ int i = 0;
+ while(client.available())
+ {
+ ByteArray[i] = client.read();
+ i++;
+ }
+
+ client.flush();
+
+
+
+///// code here --- codigo aqui
+
+  //////////////////////////////////////////////
+  int chk = DHT11.read();
+ 
+  if (chk != 0)
+  {
+    Serial.println("Failed to read from DHT sensor!");
+    return;
+  }
+
+  float tempHumi =(float)DHT11.humidity;
+  float tempTemp = (float)DHT11.temperature;
+
+  oldHumidity = tempHumi;
+  oldTemperature = tempTemp;
+ 
+  if (abs(tempTemp - avgTemperature) > avgSkip)
+  {
+    avgTemperature = tempTemp;
+  }
+  else
+  {
+    avgTemperature = (avgTemperature *  (100.0-avgForce)/100.0) + ((avgForce/100.0) * tempTemp);
+  }
+ 
+  if (abs(tempHumi - avgHumidity) > avgSkip)
+  {
+    avgHumidity = tempHumi;
+  }
+  else
+  {
+    avgHumidity = (avgHumidity * ((100.0-avgForce)/100.0)) + ((avgForce/100.0) * tempHumi);
+  }
+
+    /////////////////////////////////////////////
+
+ ///////// Holding Register [0] A [9] = 10 Holding Registers Escritura
+ ///////// Holding Register [0] A [9] = 10 Holding Registers Writing
+ 
+ //MBHoldingRegister[0] = random(0,12);
+ MBHoldingRegister[0] = (int)avgTemperature;
+ //MBHoldingRegister[1] = random(0,12);
+ MBHoldingRegister[1] = (int)avgHumidity;
+ MBHoldingRegister[2] = random(0,12);
+ MBHoldingRegister[3] = random(0,12);
+ MBHoldingRegister[4] = random(0,12);
+ MBHoldingRegister[5] = random(0,12);
+ MBHoldingRegister[6] = random(0,12);
+ MBHoldingRegister[7] = random(0,12);
+ MBHoldingRegister[8] = random(0,12);
+ MBHoldingRegister[9] = random(0,12);
+
+ 
+
+
+ ///////// Holding Register [10] A [19] = 10 Holding Registers Lectura
+ ///// Holding Register [10] A [19] = 10 Holding Registers Reading
+ 
+ int Temporal[10];
+ 
+ //Temporal[0] = MBHoldingRegister[10];
+ Temporal[0] = MBHoldingRegister[0];
+ //Temporal[1] = MBHoldingRegister[11];
+ Temporal[1] = MBHoldingRegister[1];
+ Temporal[2] = MBHoldingRegister[12];
+ Temporal[3] = MBHoldingRegister[13];
+ Temporal[4] = MBHoldingRegister[14];
+ Temporal[5] = MBHoldingRegister[15];
+ Temporal[6] = MBHoldingRegister[16];
+ Temporal[7] = MBHoldingRegister[17];
+ Temporal[8] = MBHoldingRegister[18];
+ Temporal[9] = MBHoldingRegister[19];
+
+ /// Enable Output 14
+ digitalWrite(14, MBHoldingRegister[14] );
+
+
+ //// debug
+
+ for (int i = 0; i < 10; i++) {
+
+ Serial.print("[");
+ Serial.print(i);
+ Serial.print("] ");
+ Serial.print(Temporal[i]);
+ 
+ }
+ Serial.println("");
+
+
+
+
+//// end code - fin 
+ 
+
+ //// rutine Modbus TCP
+ byteFN = ByteArray[MB_TCP_FUNC];
+ Start = word(ByteArray[MB_TCP_REGISTER_START],ByteArray[MB_TCP_REGISTER_START+1]);
+ WordDataLength = word(ByteArray[MB_TCP_REGISTER_NUMBER],ByteArray[MB_TCP_REGISTER_NUMBER+1]);
+ }
+ 
+ // Handle request
+
+ switch(byteFN) {
+ case MB_FC_NONE:
+ break;
+ 
+ case MB_FC_READ_REGISTERS: // 03 Read Holding Registers
+ ByteDataLength = WordDataLength * 2;
+ ByteArray[5] = ByteDataLength + 3; //Number of bytes after this one.
+ ByteArray[8] = ByteDataLength; //Number of bytes after this one (or number of bytes of data).
+ for(int i = 0; i < WordDataLength; i++)
+ {
+ ByteArray[ 9 + i * 2] = highByte(MBHoldingRegister[Start + i]);
+ ByteArray[10 + i * 2] = lowByte(MBHoldingRegister[Start + i]);
+ }
+ MessageLength = ByteDataLength + 9;
+ client.write((const uint8_t *)ByteArray,MessageLength);
+ 
+ byteFN = MB_FC_NONE;
+ 
+ break;
+ 
+ 
+ case MB_FC_WRITE_REGISTER: // 06 Write Holding Register
+ MBHoldingRegister[Start] = word(ByteArray[MB_TCP_REGISTER_NUMBER],ByteArray[MB_TCP_REGISTER_NUMBER+1]);
+ ByteArray[5] = 6; //Number of bytes after this one.
+ MessageLength = 12;
+ client.write((const uint8_t *)ByteArray,MessageLength);
+ byteFN = MB_FC_NONE;
+ break;
+ 
+ case MB_FC_WRITE_MULTIPLE_REGISTERS: //16 Write Holding Registers
+ ByteDataLength = WordDataLength * 2;
+ ByteArray[5] = ByteDataLength + 3; //Number of bytes after this one.
+ for(int i = 0; i < WordDataLength; i++)
+ {
+ MBHoldingRegister[Start + i] = word(ByteArray[ 13 + i * 2],ByteArray[14 + i * 2]);
+ }
+ MessageLength = 12;
+ client.write((const uint8_t *)ByteArray,MessageLength); 
+ byteFN = MB_FC_NONE;
+ 
+ break;
+ }
+ }
+
+
+ 
+
+}
